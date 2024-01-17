@@ -82,20 +82,30 @@ class RendererBase(abc.ABC):
     ) -> t.Iterable[ItemData]:
         """Get the children of this item, sorted according to the config.
 
-        If module and full_name in module_all_regexes,
-        it will use the __all__ list instead of the children.
+        If module and full_name in module_all_regexes, it will use the
+        __all__ list, if exists, instead of the children.
 
         :param item: The item to get the children of.
         :param types: If given, only return items of these types.
         :param omit_hidden: If True, omit hidden items.
+
         """
-        if item["type"] in {"module", "package"} and any(
-            pat.fullmatch(item["full_name"]) for pat in self.config.module_all_regexes
+        children: t.Iterable[ItemData]
+        if (
+            item["type"] in {"module", "package"}
+            and any(
+                pat.fullmatch(item["full_name"])
+                for pat in self.config.module_all_regexes
+            )
+            # If there's no __all__ in this module, fallback to
+            # listing children.
+            and item.get("all") is not None
         ):
             resolved = self._all_resolver.get_resolved_all(item["full_name"])[
                 "resolved"
             ]
 
+            children = []
             for all_name in (
                 sorted(item.get("all") or [])
                 if self.config.sort_names
@@ -123,16 +133,17 @@ class RendererBase(abc.ABC):
                 if not (
                     resolved_item is None
                     or (types is not None and resolved_item["type"] not in types)
-                    or (omit_hidden and self.is_hidden(resolved_item))
                 ):
-                    yield resolved_item
+                    children.append(resolved_item)
         else:
-            for child in self._db.get_children(
+            children = self._db.get_children(
                 item["full_name"], types=types, sort_name=self.config.sort_names
-            ):
-                if omit_hidden and self.is_hidden(child):
-                    continue
-                yield child
+            )
+
+        for child in children:
+            if omit_hidden and self.is_hidden(child):
+                continue
+            yield child
 
     def is_hidden(self, item: ItemData) -> bool:
         """Whether this object should be displayed in documentation.

@@ -291,7 +291,7 @@ class Config:
         default_factory=list,
         metadata={
             "help": "Regexes which match fully qualified module names, "
-            "to specify they should use the `__all__` when "
+            "those modules will use `__all__`, if it exists, when "
             "determining which children to document",
             "sphinx_type": list,
             "sphinx_validate": _validate_regex_list,
